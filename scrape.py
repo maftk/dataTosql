@@ -40,6 +40,7 @@ def scrape_data_playwright():
                     print(tds)
                     if tds:
                         data.append(tds)
+                break
 
             df = pd.DataFrame(data=data, columns=headers)
             df['current'] = df['current'].str.replace(',', '').astype(float).astype(int)
