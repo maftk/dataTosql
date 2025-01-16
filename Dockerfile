@@ -1,14 +1,13 @@
-FROM python 
+FROM python:3.9-slim
 
-RUN sh -c 'echo "deb http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list' && \
-    wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - && \
-    apt update && \
-    apt install google-chrome-stable -y
+RUN apt-get update && apt-get install -y libglib2.0-0 libnss3 libgdk-pixbuf2.0-0 libgtk-3-0
 
 WORKDIR /app
 
 COPY . .
 
-RUN pip install --upgrade -r requirements.txt
+RUN pip install -r requirements.txt
+
+RUN playwright install --with-deps chromium
 
 CMD ["python", "scrape.py"]
