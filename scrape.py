@@ -63,7 +63,8 @@ def scrape_data_playwright():
             df["date"] = datetime.now().strftime("%Y-%m-%d")
             gs_save(df)
             # df.to_csv(CSV_PATH, index=False)
-            return df
+            if df is not None:
+                print("スクレイピング完了")
 
         except Exception as e:
             print(f"エラーが発生しました: {e}")
@@ -74,5 +75,3 @@ def scrape_data_playwright():
 
 if __name__ == "__main__":
     df = scrape_data_playwright()
-    if df is not None:
-        print("スクレイピング完了")
