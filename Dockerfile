@@ -1,5 +1,9 @@
 FROM python:3.9-slim
 
+ARG projectid
+
+ENV PROJECT_ID=${projectid}
+
 RUN apt-get update && apt-get install -y libglib2.0-0 libnss3 libgdk-pixbuf2.0-0 libgtk-3-0
 
 WORKDIR /app
