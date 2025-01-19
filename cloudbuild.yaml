@@ -25,5 +25,3 @@ steps:
       - 'asia-northeast1'
       - '--max-retries'
       - '0'
-      - '--memory'
-      - '512Mi'
