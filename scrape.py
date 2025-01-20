@@ -1,17 +1,19 @@
 from playwright.sync_api import sync_playwright
 import pandas as pd
+import numpy as np
 from datetime import datetime
 from google.cloud import storage, bigquery
-import os
+import os, gc
 
 PROJECT_ID = os.environ["PROJECT_ID"]
+bq = bigquery.Client()
+gs = storage.Client()
 
 def csv_to_bq():
     uri = f"gs://{PROJECT_ID}-trade/info.csv"
 
-    table_id = f"{PROJECT_ID}.trade.kabucopy"
+    table_id = f"{PROJECT_ID}.trade.kabumap"
 
-    client = bigquery.Client()
 
     job_config = bigquery.LoadJobConfig(
         autodetect=True,  # またはスキーマを手動で指定
@@ -19,7 +21,7 @@ def csv_to_bq():
         write_disposition=bigquery.WriteDisposition.WRITE_APPEND,  # 追記を指定
     )
 
-    job = client.load_table_from_uri(uri, table_id, job_config=job_config)
+    job = bq.load_table_from_uri(uri, table_id, job_config=job_config)
 
     job.result()
 
@@ -29,13 +31,11 @@ def csv_to_bq():
 def gs_save(df):
     file_path = "info.csv"
     bucket_name = f"{PROJECT_ID}-trade"
-    client = storage.Client()
-    bucket = client.bucket(bucket_name)
+    bucket = gs.bucket(bucket_name)
     if not bucket.exists():
         bucket.create()
     blob = bucket.blob(file_path)
     blob.upload_from_string(df, "text/csv")
-    del df
     print(f"DataFrameをGCSに保存しました: gs://{bucket_name}/{file_path}")
 
 def scrape_data_playwright():
@@ -64,11 +64,10 @@ def scrape_data_playwright():
             for c in range(10):
                 # ページネーションの要素をクリック
                 pagination_links = page.locator('#KM_TABLEINDEX0 .KM_TABLEINDEX_FIGURE')
-                awaiting_navigation = page.wait_for_load_state() # ナビゲーション完了を待つ
+                page.wait_for_load_state() # ナビゲーション完了を待つ
                 pagination_links.nth(c).click()
                 del pagination_links
-                awaiting_navigation
-                del awaiting_navigation
+                page.wait_for_load_state()
                 # テーブルの行を取得
                 records = page.locator('#KM_TABLECONTENT0 tr').all()
                 data = []
@@ -78,18 +77,19 @@ def scrape_data_playwright():
 
                     tds = [td.text_content() for td in td_elements]
                     print(tds)
+                    del td_elements
                     if tds:
                         data.append(tds)
-                        del tds
-
-                del records
-
+                    del tds
+                    gc.collect()
                 df = pd.DataFrame(data=data, columns=headers)
                 del data
                 df['current'] = df['current'].str.replace(',', '').astype(float).astype(int)
                 df["date"] = datetime.now().strftime("%Y-%m-%d")
+                df = df.replace('NA', np.nan).fillna(0.0)
                 yield df.to_csv(index=False)
-            # df.to_csv(CSV_PATH, index=False)
+                del df
+                gc.collect()
             print("スクレイピング完了")
 
         except Exception as e:
@@ -98,9 +98,11 @@ def scrape_data_playwright():
 
         finally:
             browser.close()
+            gc.collect()
 
 if __name__ == "__main__":
-    csv_to_bq()
-    # for x in scrape_data_playwright():
-    #     gs_save(x)
-    #     del x
+    for x in scrape_data_playwright():
+        gs_save(x)
+        csv_to_bq()
+        del x
+        gc.collect()
