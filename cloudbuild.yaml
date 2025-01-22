@@ -1,9 +1,17 @@
 steps:
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'gcr.io/$PROJECT_ID/scrape','--build-arg','projectid=$PROJECT_ID', '.']
+    args:
+      - 'build' 
+      - '-t' 
+      - 'gcr.io/$PROJECT_ID/scrape'
+      - '--build-arg'
+      - 'projectid=$PROJECT_ID'
+      - '.'
 
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'gcr.io/$PROJECT_ID/scrape']
+    args: 
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/scrape'
 
   - name: 'gcr.io/cloud-builders/gcloud'
     args:
@@ -17,3 +25,5 @@ steps:
       - 'asia-northeast1'
       - '--max-retries'
       - '0'
+      - '--memory'
+      - '600Mi'
