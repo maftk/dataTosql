@@ -2,3 +2,4 @@ pandas
 playwright
 google-cloud-storage
 google-cloud-bigquery
+jpholiday

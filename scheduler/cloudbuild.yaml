@@ -13,8 +13,9 @@ steps:
       - 'push'
       - 'asia-northeast1-docker.pkg.dev/$PROJECT_ID/abc/test'
 
-  - name: 'gcr.io/cloud-builders/gcloud'
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
     args:
+      - 'gcloud'
       - 'run'
       - 'jobs'
       - 'deploy'
@@ -25,4 +26,3 @@ steps:
       - 'asia-northeast1'
       - '--max-retries'
       - '0'
-      - '--allow-unauthenticated'

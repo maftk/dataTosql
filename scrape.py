@@ -1,9 +1,12 @@
 from playwright.sync_api import sync_playwright
 from google.cloud import storage, bigquery
 from datetime import datetime
+import jpholiday
 import pandas as pd
 import numpy as np
 import os
+
+print(datetime.now())
 
 PROJECT_ID = os.environ["PROJECT_ID"]
 bq = bigquery.Client()
@@ -57,7 +60,7 @@ def gs_save(df: str) -> None:
 
 def records_csv(df: object) -> str:
     df['current'] = df['current'].str.replace(',', '').astype(float).astype(int)
-    df["date"] = datetime.now().strftime("%Y-%m-%d")
+    df["date"] = datetime.now().date()
     df = df.replace('NA', np.nan).fillna(0.0)
     return df.to_csv(index=False)
 
@@ -79,7 +82,6 @@ def scrape_data_playwright():
                 page.wait_for_load_state()
                 # テーブルの行を取得
                 records = page.locator('#KM_TABLECONTENT0 tr').all()
-                print(type(records))
                 for record in records:
                     yield [td.text_content() for td in record.locator("td").all()]
                     del record
@@ -94,14 +96,17 @@ def scrape_data_playwright():
             browser.close()
 
 def main():
-    gs_save(
-        records_df(
-            pd.DataFrame(
-                [x for x in scrape_data_playwright() if x],
-                columns=headers
+    if not jp_holiday.is_holiday(datetime.now()):
+        gs_save(
+            records_csv(
+                pd.DataFrame(
+                    [x for x in scrape_data_playwright() if x],
+                    columns=headers
+                )
             )
         )
-    )
+    else:
+        print("Holiday Today")
 
 if __name__ == "__main__":
     main()

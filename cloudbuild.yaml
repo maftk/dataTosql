@@ -13,8 +13,9 @@ steps:
       - 'push'
       - 'gcr.io/$PROJECT_ID/scrape'
 
-  - name: 'gcr.io/cloud-builders/gcloud'
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
     args:
+      - 'gcloud'
       - 'run'
       - 'jobs'
       - 'deploy'
