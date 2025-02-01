@@ -1,0 +1,112 @@
+from playwright.sync_api import sync_playwright
+from google.cloud import storage, bigquery
+from datetime import datetime
+import jpholiday
+import pandas as pd
+import numpy as np
+import os
+
+print(datetime.now())
+
+PROJECT_ID = os.environ["PROJECT_ID"]
+
+headers = [
+    'record_number',
+    'stock_code',
+    'company_name',
+    'industry_name',
+    'current_stock_price',
+    'daily_price_change',
+    'daily_price_change_percentage',
+    'unit_share_price',
+    'trading_value_million_jpy',
+    'deviation_25day_percentage',
+    'per_ratio',
+    'pbr_ratio'
+]
+def csv_to_bq() -> None:
+    bq = bigquery.Client()
+    uri = f"gs://{PROJECT_ID}-trade/info.csv"
+
+    table_id = f"{PROJECT_ID}.trade.kabumap"
+
+
+    job_config = bigquery.LoadJobConfig(
+        autodetect=True,  # またはスキーマを手動で指定
+        source_format=bigquery.SourceFormat.CSV,
+        write_disposition=bigquery.WriteDisposition.WRITE_APPEND,  # 追記を指定
+    )
+
+    job = bq.load_table_from_uri(uri, table_id, job_config=job_config)
+
+    job.result()
+
+    print(f"Appended csv rows to {table_id}")
+
+    return None
+
+
+def gs_save(df: str) -> None:
+    gs = storage.Client()
+    bucket = gs.bucket(f"{PROJECT_ID}-trade")
+    if not bucket.exists():
+        bucket.create()
+    blob = bucket.blob("info.csv")
+    blob.upload_from_string(df, "text/csv")
+    del df
+    print(f"DataFrameをGCSに保存しました: gs://{PROJECT_ID}-trade/info.csv")
+    csv_to_bq()
+    return None
+
+def records_csv(df: object) -> str:
+    df['current_stock_price'] = df['current_stock_price'].str.replace(',', '').astype(float).astype(int)
+    df["date"] = datetime.now().date()
+    df = df.replace('NA', np.nan).fillna(0.0)
+    return df.to_csv(index=False)
+
+def scrape_data_playwright():
+    with sync_playwright() as p:
+        browser = p.chromium.launch()  # または p.firefox.launch(), p.webkit.launch()
+        page = browser.new_page()
+
+        try:
+            page.goto(
+                "https://jp.kabumap.com/servlets/kabumap/Action?SRC=stockRanking/base&ind=unit&exch=T1&d=d"
+            )
+            for c in range(10):
+                # ページネーションの要素をクリック
+                pagination_links = page.locator('#KM_TABLEINDEX0 .KM_TABLEINDEX_FIGURE')
+                page.wait_for_load_state() # ナビゲーション完了を待つ
+                pagination_links.nth(c).click()
+                del pagination_links
+                page.wait_for_load_state()
+                # テーブルの行を取得
+                records = page.locator('#KM_TABLECONTENT0 tr').all()
+                for record in records:
+                    yield [td.text_content() for td in record.locator("td").all()]
+                    del record
+                del records
+            print("スクレイピング完了")
+
+        except Exception as e:
+            print(f"エラーが発生しました: {e}")
+            return None
+
+        finally:
+            browser.close()
+
+def main():
+    if not jpholiday.is_holiday(datetime.now()):
+        gs_save(
+            records_csv(
+                pd.DataFrame(
+                    [x for x in scrape_data_playwright() if x],
+                    columns=headers
+                )
+            )
+        )
+    else:
+        print("Holiday Today")
+
+if __name__ == "__main__":
+    main()
