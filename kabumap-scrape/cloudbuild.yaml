@@ -1,0 +1,30 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build' 
+      - '-t' 
+      - 'asia-northeast1-docker.pkg.dev/$PROJECT_ID/abc/scrape'
+      - '--build-arg'
+      - 'projectid=$PROJECT_ID'
+      - '.'
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: 
+      - 'push'
+      - 'asia-northeast1-docker.pkg.dev/$PROJECT_ID/abc/scrape'
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    args:
+      - 'gcloud'
+      - 'run'
+      - 'jobs'
+      - 'deploy'
+      - 'scrape'
+      - '--image'
+      - 'asia-northeast1-docker.pkg.dev/$PROJECT_ID/abc/scrape'
+      - '--region'
+      - 'asia-northeast1'
+      - '--max-retries'
+      - '0'
+      - '--memory'
+      - '800Mi'
